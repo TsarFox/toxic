@@ -36,6 +36,11 @@ static struct python_registered_func {
     struct python_registered_func *next;
 } python_commands = {0};
 
+struct python_message_callback {
+    PyObject *callback;
+    struct python_message_callback *next;
+} python_message_callbacks = {0};
+
 static PyObject *python_api_display(PyObject *self, PyObject *args)
 {
     const char *msg;
@@ -143,6 +148,33 @@ static PyObject *python_api_send(PyObject *self, PyObject *args)
     return Py_None;
 }
 
+static PyObject *python_api_get_messages(PyObject *self, PyObject *args)
+{
+    int               n;
+    PyObject         *ret;
+    struct history   *hst;
+    struct line_info *cur;
+
+    if (!PyArg_ParseTuple(args, "i", &n))
+        return NULL;
+
+    hst = api_get_history();
+    cur = hst->line_end;
+    ret = PyList_New(0);
+
+    while (n) {
+        PyList_Append(ret, Py_BuildValue("(s,d)", cur->msg, cur->timestamp));
+
+        if (cur->prev == NULL)
+            break;
+
+        cur = cur->prev;
+        n--;
+    }
+
+    return ret;
+}
+
 static PyObject *python_api_execute(PyObject *self, PyObject *args)
 {
     int         mode;
@@ -152,6 +184,36 @@ static PyObject *python_api_execute(PyObject *self, PyObject *args)
         return NULL;
 
     api_execute(command, mode);
+    return Py_None;
+}
+
+static PyObject *python_api_register_message(PyObject *self, PyObject *args)
+{
+    struct python_message_callback *cur;
+    PyObject *callback;
+
+    if (!PyArg_ParseTuple(args, "O:register_command", &callback))
+        return NULL;
+
+    if (!PyCallable_Check(callback)) {
+        PyErr_SetString(PyExc_TypeError, "Parameter must be callable");
+        return NULL;
+    }
+
+    for (cur = &python_message_callbacks; ; cur = cur->next) {
+        if (cur->next == NULL) {
+            Py_XINCREF(callback);
+            cur->next = malloc(sizeof(struct python_message_callback));
+
+            if (cur->next == NULL)
+                return PyErr_NoMemory();
+
+            cur->next->callback = callback;
+            cur->next->next     = NULL;
+            break;
+        }
+    }
+
     return Py_None;
 }
 
@@ -210,7 +272,6 @@ static PyObject *python_api_register(PyObject *self, PyObject *args)
         }
     }
 
-    Py_INCREF(Py_None);
     return Py_None;
 }
 
@@ -221,8 +282,10 @@ static PyMethodDef ToxicApiMethods[] = {
     {"get_status_message", python_api_get_status_message, METH_VARARGS, "Return the user's current status message"},
     {"get_all_friends",    python_api_get_all_friends,    METH_VARARGS, "Return all of the user's friends"},
     {"send",               python_api_send,               METH_VARARGS, "Send the message to the current user"},
+    {"get_messages",       python_api_get_messages,       METH_VARARGS, "Returns messages from the current conversation"},
     {"execute",            python_api_execute,            METH_VARARGS, "Execute a command like `/nick`"},
     {"register",           python_api_register,           METH_VARARGS, "Register a command like `/nick` to a Python function"},
+    {"register_message",   python_api_register_message,   METH_VARARGS, "Register a callback to be run whenever a message is received"},
     {NULL,                 NULL,                          0,            NULL},
 };
 
@@ -304,6 +367,22 @@ int do_python_command(int num_args, char (*args)[MAX_STR_SIZE])
     }
 
     return 1;
+}
+
+void do_python_message_callbacks(const char *msg)
+{
+    PyObject *callback_args;
+    struct python_message_callback *cur;
+
+    for (cur = &python_message_callbacks; cur != NULL; cur = cur->next) {
+        if (cur->callback == NULL)
+            continue;
+
+        callback_args = PyTuple_Pack(1, Py_BuildValue("s", msg));
+
+        if (PyObject_CallObject(cur->callback, callback_args) == NULL)
+            api_display("Exception raised in callback function");
+    }
 }
 
 int python_num_registered_handlers(void)

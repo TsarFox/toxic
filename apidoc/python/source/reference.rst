@@ -20,6 +20,14 @@ Messages
    :type msg: string
    :rtype: none
 
+.. function:: get_messages(n)
+
+   Returns the n most recent messages from the current conversation.
+
+   :param n: The number of messages to get.
+   :type n: int
+   :rtype: A list of tuples containing the message and the unix timestamp.
+
 
 State
 =====
@@ -68,6 +76,14 @@ Commands
    :type command: string
    :param help: A description of the command to be shown in the help menu.
    :type help: string
+   :param callback: The function to be called.
+   :type callback: callable
+   :rtype: none
+
+.. function:: register_message(callback)
+
+   Register a callback to be executed whenever a new message is received. The callback function will be called with one argument, a string representation of the message received.
+
    :param callback: The function to be called.
    :type callback: callable
    :rtype: none

@@ -111,6 +111,12 @@ void api_send(const char *msg)
     free(name);
 }
 
+struct history *api_get_history(void)
+{
+    self_window = get_active_window();
+    return self_window->chatwin->hst;
+}
+
 void api_execute(const char *input, int mode)
 {
     self_window = get_active_window();
@@ -120,6 +126,11 @@ void api_execute(const char *input, int mode)
 int do_plugin_command(int num_args, char (*args)[MAX_STR_SIZE])
 {
     return do_python_command(num_args, args);
+}
+
+void do_message_callbacks(const char *msg)
+{
+    do_python_message_callbacks(msg);
 }
 
 int num_registered_handlers(void)

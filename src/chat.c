@@ -46,6 +46,7 @@
 #include "autocomplete.h"
 #include "notify.h"
 #include "message_queue.h"
+#include "api.h"
 
 #ifdef AUDIO
 #include "audio_call.h"
@@ -197,6 +198,10 @@ static void chat_onMessage(ToxWindow *self, Tox *m, uint32_t num, TOX_MESSAGE_TY
 {
     if (self->num != num)
         return;
+
+#ifdef PYTHON
+    do_message_callbacks(msg);
+#endif
 
     char nick[TOX_MAX_NAME_LENGTH];
     get_nick_truncate(m, nick, num);

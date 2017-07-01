@@ -32,6 +32,7 @@ void terminate_python(void);
 void init_python(Tox *m);
 void run_python(FILE *fp, char *path);
 int do_python_command(int num_args, char (*args)[MAX_STR_SIZE]);
+void do_python_message_callbacks(const char *msg);
 int python_num_registered_handlers(void);
 int python_help_max_width(void);
 void python_draw_handler_help(WINDOW *win);
